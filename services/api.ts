@@ -114,20 +114,18 @@ export const registerStaff = async (data: any): Promise<void> => {
   if (!response.ok) throw new Error(result.error || 'Staff registration failed');
 };
 
-export const verifyStudentId = async (studentId: string): Promise<boolean> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/verify-student`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId }),
-      signal: AbortSignal.timeout(3000)
-    });
-    const result = await response.json();
-    return result.success;
-  } catch (e) {
-    console.warn("Verification API unreachable, allowing Demo access.");
-    return true; // Allow for demo
-  }
+export const verifyStudentId = async (studentId: string): Promise<{ success: boolean, student?: any }> => {
+  const response = await fetch(`${API_BASE_URL}/auth/verify-student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId }),
+    signal: AbortSignal.timeout(3000)
+  });
+  const result = await response.json();
+  return { 
+    success: result.success,
+    student: result.student 
+  };
 };
 
 export const loginGuest = (): User => {

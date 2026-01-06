@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Phone, Lock, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { AuthLayout } from './AuthLayout';
-import { verifyStudentId, registerStudent } from '../../../../services/api';
+import { verifyStudentId, registerStudent } from '../../services/api';
 
 interface StudentRegisterFormProps {
     onSuccess: (user: any) => void;
@@ -19,6 +19,7 @@ export const StudentRegisterForm: React.FC<StudentRegisterFormProps> = ({ onSucc
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [step, setStep] = useState(1);
+    const [studentInfo, setStudentInfo] = useState<any>(null);
 
     const handleVerifyStudentId = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,10 +27,11 @@ export const StudentRegisterForm: React.FC<StudentRegisterFormProps> = ({ onSucc
         setLoading(true);
 
         try {
-            const success = await verifyStudentId(formData.studentId);
-            if (!success) {
+            const result = await verifyStudentId(formData.studentId);
+            if (!result.success) {
                 throw new Error('Student ID not found in roster');
             }
+            setStudentInfo(result.student);
             setStep(2);
         } catch (err: any) {
             setError(err.message);
@@ -124,9 +126,18 @@ export const StudentRegisterForm: React.FC<StudentRegisterFormProps> = ({ onSucc
 
             {step === 2 && (
                 <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="bg-green-50 border border-green-200 rounded-[20px] p-4 mb-4">
-                        <p className="text-sm text-green-700">✓ Student ID verified: {formData.studentId}</p>
-                    </div>
+                    {studentInfo && (
+                        <div className="bg-green-50 border border-green-200 rounded-[20px] p-4 mb-4">
+                            <div className="space-y-2">
+                                <p className="text-sm font-semibold text-green-800">✓ Student Verified</p>
+                                <div className="text-sm text-green-700">
+                                    <p><strong>Name:</strong> {studentInfo.fullName}</p>
+                                    <p><strong>Classroom:</strong> {studentInfo.classRoom}</p>
+                                    <p><strong>Student ID:</strong> {formData.studentId}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-semibold text-slate-700 mb-2">
