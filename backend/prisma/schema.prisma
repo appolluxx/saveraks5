@@ -43,16 +43,21 @@ enum ActionType {
   other
 }
 
-model PreRegisteredStudent {
-  id        String   @id @default(uuid())
-  studentId String   @unique @map("student_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  classRoom String   @map("class_room")
-  isRegistered Boolean @default(false) @map("is_registered")
-  registeredUserId String? @map("registered_user_id")
-  
-  @@map("pre_registered_students")
+model StudentsMaster {
+  id              String    @id @default(uuid())
+  studentId       String    @unique @map("student_id")
+  numberInClass   Int?      @map("number_in_class")
+  prefix          String?
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  grade           Int
+  room            Int
+  isRegistered    Boolean   @default(false) @map("is_registered")
+  registeredAt    DateTime? @map("registered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("students_master")
 }
 
 model User {

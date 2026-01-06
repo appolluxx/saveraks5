@@ -25,3 +25,31 @@ export const api = {
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     }
 };
+
+export const verifyStudentId = async (studentId: string): Promise<{ success: boolean, student?: any }> => {
+  const fullUrl = `${API_BASE}/api/auth/verify-student`;
+  console.log("VERIFY URL:", fullUrl);
+  const response = await fetch(fullUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId }),
+    signal: AbortSignal.timeout(3000)
+  });
+  const result = await response.json();
+  return { 
+    success: result.success,
+    student: result.student 
+  };
+};
+
+export const registerStudent = async (data: { studentId: string, phone: string, password: string }): Promise<any> => {
+  const response = await fetch(`${API_BASE}/api/auth/register/student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    signal: AbortSignal.timeout(5000)
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Student registration failed');
+  return result.user;
+};

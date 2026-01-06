@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient, UserRole, StaffPosition } from '@prisma/client'; // เพิ่ม StaffPosition เข้ามา
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -11,17 +11,17 @@ export const registerStudent = async (req: Request, res: Response): Promise<void
     const { studentId, phone, password } = req.body;
 
     try {
-        // 1. Validate against School Roster (PreRegisteredStudent)
-        const rosterEntry = await prisma.preRegisteredStudent.findUnique({
+        // 1. Validate against Students Master
+        const studentRecord = await prisma.studentsMaster.findUnique({
             where: { studentId }
         });
 
-        if (!rosterEntry) {
+        if (!studentRecord) {
             res.status(403).json({ error: "Access Denied: Student ID not found in school records." });
             return;
         }
 
-        if (rosterEntry.isRegistered) {
+        if (studentRecord.isRegistered) {
             res.status(400).json({ error: "Identity Conflict: This ID is already registered." });
             return;
         }
@@ -44,29 +44,29 @@ export const registerStudent = async (req: Request, res: Response): Promise<void
         // 3. Hash Password
         const passwordHash = await bcrypt.hash(password, 12);
 
-        // 4. Create User & Update Roster (Atomic Transaction)
-        const result = await prisma.$transaction(async (tx) => {
-            // สร้าง User ใหม่ โดยดึงชื่อจาก PreRegisteredStudent
+        // 4. Create User & Update Students Master (Atomic Transaction)
+        const result = await prisma.$transaction(async (tx: any) => {
+            // สร้าง User ใหม่ โดยดึงชื่อจาก StudentsMaster
             const newUser = await tx.user.create({
                 data: {
-                    role: UserRole.STUDENT,
+                    role: 'STUDENT' as any,
                     phone,
                     passwordHash,
-                    studentId: rosterEntry.studentId,
-                    firstName: rosterEntry.firstName, // ใช้ค่าจาก Roster
-                    lastName: rosterEntry.lastName,   // ใช้ค่าจาก Roster
-                    fullName: `${rosterEntry.firstName} ${rosterEntry.lastName}`,
-                    classRoom: rosterEntry.classRoom,
-                    status: 'active'
+                    studentId: studentRecord.studentId,
+                    firstName: studentRecord.firstName,
+                    lastName: studentRecord.lastName,
+                    fullName: `${studentRecord.prefix ? studentRecord.prefix + ' ' : ''}${studentRecord.firstName} ${studentRecord.lastName}`,
+                    classRoom: studentRecord.classRoom,
+                    status: 'active' as any
                 }
             });
 
             // อัปเดตว่าลงทะเบียนแล้ว
-            await tx.preRegisteredStudent.update({
+            await tx.studentsMaster.update({
                 where: { studentId },
                 data: {
                     isRegistered: true,
-                    registeredUserId: newUser.id
+                    registeredAt: new Date()
                 }
             });
 
@@ -83,7 +83,8 @@ export const registerStudent = async (req: Request, res: Response): Promise<void
                 id: result.id,
                 role: result.role,
                 name: result.fullName,
-                studentId: result.studentId
+                studentId: result.studentId,
+                classRoom: result.classRoom
             }
         });
 
@@ -119,7 +120,7 @@ export const registerStaff = async (req: Request, res: Response): Promise<void> 
         // 3. Create Staff User
         const newUser = await prisma.user.create({
             data: {
-                role: UserRole.STAFF,
+                role: 'STAFF' as any,
                 email,
                 phone,
                 passwordHash,
@@ -127,8 +128,8 @@ export const registerStaff = async (req: Request, res: Response): Promise<void> 
                 lastName,
                 fullName: `${firstName} ${lastName}`,
                 // ตรงนี้สำคัญ: Cast ค่า position ให้เป็น Enum StaffPosition
-                staffPosition: position as StaffPosition, 
-                status: 'active'
+                staffPosition: position as any, 
+                status: 'active' as any
             }
         });
 
@@ -247,21 +248,42 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
-// --- Utility: Verification Endpoint (Kept for frontend check) ---
+// --- Utility: Verification Endpoint (Returns student info) ---
 export const verifyStudent = async (req: Request, res: Response): Promise<void> => {
+    console.log("VERIFY-STUDENT CONTROLLER HIT!");
     const { studentId } = req.body;
     try {
-        const rosterEntry = await prisma.preRegisteredStudent.findUnique({ where: { studentId } });
-        if (!rosterEntry) {
-            res.status(404).json({ success: false, error: "ID not found." });
+        const studentRecord = await prisma.studentsMaster.findUnique({ where: { studentId } });
+        
+        if (!studentRecord) {
+            console.log("RESPONSE STATUS: 404 - Student not found");
+            res.status(404).json({ success: false, error: "Student ID not found." });
             return;
         }
-        if (rosterEntry.isRegistered) {
+        
+        if (studentRecord.isRegistered) {
+            console.log("RESPONSE STATUS: 400 - Already registered");
             res.status(400).json({ success: false, error: "Already registered." });
             return;
         }
-        res.json({ success: true, message: "Valid Student ID." });
+        
+        // Return student information for frontend display
+        console.log("RESPONSE STATUS: 200 - Success");
+        res.json({ 
+            success: true, 
+            message: "Valid Student ID.",
+            student: {
+                fullName: `${studentRecord.prefix ? studentRecord.prefix + ' ' : ''}${studentRecord.firstName} ${studentRecord.lastName}`,
+                firstName: studentRecord.firstName,
+                lastName: studentRecord.lastName,
+                classRoom: `${studentRecord.grade}/${studentRecord.room}`,
+                grade: studentRecord.grade,
+                room: studentRecord.room
+            }
+        });
     } catch (e) {
+        console.error("Verification error:", e);
+        console.log("RESPONSE STATUS: 500 - Server error");
         res.status(500).json({ success: false, error: "Verification failed." });
     }
 };
